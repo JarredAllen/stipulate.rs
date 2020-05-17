@@ -1,47 +1,102 @@
 use std::time::Duration;
 
-use toml;
+/// Default timeout for python programs, in seconds, per test case
+const DEFAULT_TIMEOUT: u64 = 5;
 
-const FOO: [String; 0] = [];
+#[cfg(target_os = "windows")]
+const DEFAULT_PYTHON: &str = "python";
+
+#[cfg(target_os = "linux")]
+const DEFAULT_PYTHON: &str = "python3";
 
 pub struct PythonConfig {
+    name: String,
+    test_data_dir: String,
+    python_version: String,
+    timeout: Option<Duration>,
+    // Stores the arguments. We never touch it directly, but args_refs
+    // points within here, so we have to keep ownership
+    #[allow(dead_code)]
+    args: Vec<String>,
+    // Stores a vec of pointers to str objects in args. Unsafe, but
+    // needed to be able to produce a &[&str].
+    args_refs: Vec<*const str>,
 }
 
 impl PythonConfig {
     pub fn from_toml(conf: &toml::Value) -> Result<PythonConfig, &'static str> {
-        Err("Python not implemented yet")
+        let name = match conf.get("name") {
+            Some(toml::Value::String(s)) => Ok(s.clone()),
+            None => Err("Missing \"name\" field"),
+            _ => Err("\"name\" field should be a string"),
+        }?;
+        let test_data_dir = match conf.get("tests_dir") {
+            Some(toml::Value::String(s)) => Ok(s.clone()),
+            None => Err("Missing \"tests_dir\" field"),
+            _ => Err("\"tests_dir\" field should be a string"),
+        }?;
+        let python_version = match conf.get("version") {
+            Some(toml::Value::String(s)) => Ok(s.clone()),
+            None => Ok(String::from(DEFAULT_PYTHON)),
+            _ => Err("\"version\", if specified, must be a string"),
+        }?;
+        let timeout = match conf.get("timeout") {
+            Some(toml::Value::Integer(seconds)) => Ok(Some(Duration::new(*seconds as u64, 0))),
+            Some(toml::Value::Float(seconds)) => Ok(Some(Duration::new(
+                *seconds as u64,
+                ((seconds % 1.0) * 1e9) as u32,
+            ))),
+            None | Some(toml::Value::Boolean(true)) => Ok(Some(Duration::new(DEFAULT_TIMEOUT, 0))),
+            Some(toml::Value::Boolean(false)) => Ok(None),
+            _ => Err("\"timeout\", if specified, should be a number or false"),
+        }?;
+        let main_file = match conf.get("file") {
+            Some(toml::Value::String(s)) => Ok(s.clone()),
+            None => Err("Missing \"file\" field"),
+            _ => Err("\"file\" field should be a string"),
+        }?;
+        let args = match conf.get("args") {
+            None => Ok(vec![main_file]),
+            Some(toml::Value::Array(_arr)) => Err("Custom arguments to main not yet supported"),
+            _ => Err("\"args\", if specified, must be an array"),
+        }?;
+        let args_refs: Vec<*const str> = args.iter().map(|s| s.as_str() as *const str).collect();
+        Ok(PythonConfig {
+            name,
+            test_data_dir,
+            python_version,
+            timeout,
+            args,
+            args_refs,
+        })
     }
 }
 
 impl super::Config for PythonConfig {
-    /// A name for this set of tests
     fn name(&self) -> &str {
-        "foo"
+        &self.name
     }
 
-    /// The folder containing the input and output files
-    fn test_data_dir(&self) -> &str {
-        "foo"
+    fn test_type(&self) -> super::TestType {
+        super::TestType::Directory(&self.test_data_dir)
     }
 
-    /// The amount of time to let code run before timing out
     fn case_timeout(&self) -> &Option<Duration> {
-        &None
+        &self.timeout
     }
 
-    /// The name of the command to run.
     fn command(&self) -> &str {
-        "foo"
+        &self.python_version
     }
 
-    /// The arguments to be passed to the command.
-    fn args(&self) -> &[String] {
-        &FOO[..]
+    fn args(&self) -> &[&str] {
+        // In this block, we pretend that args_refs was actually just
+        // the Vec<&str> that the borrow checker doesn't let it be.
+        unsafe { &*(self.args_refs.as_slice() as *const [*const str] as *const [&str]) }
     }
 
-    /// A list of commands to be run in the student's code directory
-    /// before running the code.
-    fn setup(&self) -> &[String] {
-        &FOO[..]
+    fn setup(&self) -> &[&str] {
+        // No need to do any setup
+        &[]
     }
 }
