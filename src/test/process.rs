@@ -26,7 +26,7 @@ pub enum TestAnswer {
 /// command's output matches `expected_output`.
 ///
 /// If timeout is None, then it will wait for the child to finish.
-/// Otherwise, it will only wait the specified amount of time. 
+/// Otherwise, it will only wait the specified amount of time.
 ///
 /// It returns true if it matches, false if it doesn't match, and Err
 /// if it encountered an error trying to evaluate it (with an &str
@@ -58,16 +58,16 @@ pub fn test_output(
             Ok(Some(code)) => Ok(code),
             Ok(None) => {
                 let _ = child.kill();
-                match child.wait() {
-                    Err(e) => println!("Error reaping child process: {}", e),
-                    _ => {},
+                if let Err(e) = child.wait() {
+                    println!("Error reaping child process: {}", e);
                 };
                 return Ok(TestAnswer::Timeout);
-            },
+            }
             Err(e) => Err(e),
         },
         None => child.wait(),
-    }.map_err(|e| format!("Error waiting on child process: {}", e))?;
+    }
+    .map_err(|e| format!("Error waiting on child process: {}", e))?;
     let child_output = read_from_stream(
         child
             .stdout
@@ -99,15 +99,33 @@ mod tests {
     #[test]
     fn test_with_timeout() {
         assert_eq!(
-            test_output("echo", &["Hello, world"], "", "Hello, world\n", Some(Duration::new(1, 0))),
+            test_output(
+                "echo",
+                &["Hello, world"],
+                "",
+                "Hello, world\n",
+                Some(Duration::new(1, 0))
+            ),
             Ok(TestAnswer::Success)
         );
         assert_eq!(
-            test_output("echo", &["Goodbye, world"], "", "Hello, world\n", Some(Duration::new(1, 0))),
+            test_output(
+                "echo",
+                &["Goodbye, world"],
+                "",
+                "Hello, world\n",
+                Some(Duration::new(1, 0))
+            ),
             Ok(TestAnswer::Failure)
         );
         assert_eq!(
-            test_output("sleep", &["10"], "", "Hello, world\n", Some(Duration::new(1, 0))),
+            test_output(
+                "sleep",
+                &["10"],
+                "",
+                "Hello, world\n",
+                Some(Duration::new(0, 100))
+            ),
             Ok(TestAnswer::Timeout)
         );
     }
