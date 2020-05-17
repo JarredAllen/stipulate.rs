@@ -46,11 +46,19 @@ impl JavaConfig {
             Some(toml::Value::Boolean(false)) => Ok(None),
             _ => Err("\"timeout\", if specified, should be a number or false"),
         }?;
-        let args = match conf.get("args") {
-            None => Ok(vec![main_class]),
-            Some(toml::Value::Array(_arr)) => Err("Custom arguments to main not yet supported"),
+        let mut args: Vec<String> = match conf.get("args") {
+            None => Ok(Vec::new()),
+            Some(toml::Value::Array(arr)) => arr.iter().map(|v| match v {
+                toml::Value::String(s) => Ok(s.clone()),
+                toml::Value::Array(_) | toml::Value::Table(_) => Err("Args may not contain nested structures"),
+                toml::Value::Integer(i) => Ok(format!("{}", i)),
+                toml::Value::Float(f) => Ok(format!("{}", f)),
+                toml::Value::Boolean(b) => Ok(format!("{}", b)),
+                toml::Value::Datetime(d) => Ok(format!("{}", d)),
+            }).collect(),
             _ => Err("\"args\", if specified, must be an array"),
         }?;
+        args.insert(0, main_class);
         let args_refs: Vec<*const str> = args.iter().map(|s| s.as_str() as *const str).collect();
         Ok(JavaConfig {
             name,

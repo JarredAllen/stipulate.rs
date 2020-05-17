@@ -3,13 +3,16 @@ mod python;
 
 use std::fs::File;
 use std::io::{self, Read};
+use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 
-use std::ops::Deref;
-use std::ops::DerefMut;
+pub use java::JavaConfig;
+pub use python::PythonConfig;
 
-/// This struct represents all of the configuration for a test run. This
-/// entire module is about creating, exporting, and dealing with these.
+/// This struct represents all of the configuration for a test run.
+///
+/// It is essentially a smart pointer to an object of type `Config`,
+/// with some extra convenience methods about using it.
 pub struct TestConfig {
     config: Box<dyn Config>,
 }
@@ -45,11 +48,9 @@ impl TestConfig {
     /// of test being run. The available options currently are "java"
     /// and "python".
     ///
-    /// Configuration options for java are at
-    /// `java::JavaConfig::from_toml`.
+    /// Configuration options for java are at `JavaConfig::from_toml`.
     ///
-    /// Configuration options for python are at
-    /// `python::PythonConfig::from_toml`.
+    /// Configuration options for python are at `PythonConfig::from_toml`.
     pub fn from_toml_values(values: toml::Value) -> Result<TestConfig, Error> {
         match values {
             toml::Value::Table(table) => {
