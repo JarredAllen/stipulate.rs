@@ -3,9 +3,12 @@ use std::time::Duration;
 /// Default timeout for java programs, in seconds, per test case
 const DEFAULT_TIMEOUT: u64 = 5;
 
-/// We need to compile their java files
+/// Setup behavior: compile all java files at once
 const JAVA_SETUP: [&str; 1] = ["javac *.java"];
 
+/// This struct represents a configuration for running a java program.
+///
+/// See `JavaConfig::from_toml` for docs on how to create one.
 pub struct JavaConfig {
     name: String,
     test_data_dir: String,
@@ -20,6 +23,20 @@ pub struct JavaConfig {
 }
 
 impl JavaConfig {
+    /// Required fields in the toml:
+    ///  - "name": A name for this test
+    ///  - "tests_dir": The directory to contain input and output data
+    ///  - "main_class": The class containing a public static void
+    /// main(String[] args) method to be run.
+    ///
+    /// Optional fields in the toml:
+    ///  - "timeout": Should be the number of seconds to allow before
+    /// timing out, `true` (use default timeout value), or `false`
+    /// (allow tested code to run however long it takes - not
+    /// recommended). Default: 5 seconds
+    ///  - "args": Should be an array of arguments to pass to the java
+    /// program being tested. It will be passed directly to the String[]
+    /// args in the java program. Default: empty array.
     pub fn from_toml(conf: &toml::Value) -> Result<JavaConfig, &'static str> {
         let name = match conf.get("name") {
             Some(toml::Value::String(s)) => Ok(s.clone()),

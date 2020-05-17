@@ -1,3 +1,5 @@
+//! Functions, enumerations, etc. pertaining to the evaluation of student programs
+
 mod process;
 
 use std::time::Duration;

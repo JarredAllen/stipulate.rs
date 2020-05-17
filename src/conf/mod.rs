@@ -1,3 +1,5 @@
+//! Handles loading of configurations for tests
+
 mod java;
 mod python;
 
@@ -61,14 +63,14 @@ impl TestConfig {
                         config: match key.as_str() {
                             "java" => Box::new(
                                 java::JavaConfig::from_toml(value)
-                                    .map_err(|e| Error::OtherError(e.to_string()))?,
+                                    .map_err(|e| Error::InterpretError(e.to_string()))?,
                             ),
                             "python" => Box::new(
                                 python::PythonConfig::from_toml(value)
-                                    .map_err(|e| Error::OtherError(e.to_string()))?,
+                                    .map_err(|e| Error::InterpretError(e.to_string()))?,
                             ),
                             key => {
-                                return Err(Error::OtherError(format!(
+                                return Err(Error::InterpretError(format!(
                                     "Unrecognized config type: {}",
                                     key
                                 )))
@@ -76,12 +78,12 @@ impl TestConfig {
                         },
                     })
                 } else {
-                    Err(Error::OtherError(String::from(
+                    Err(Error::InterpretError(String::from(
                         "The config file should have exactly one section",
                     )))
                 }
             }
-            _ => Err(Error::OtherError(String::from(
+            _ => Err(Error::InterpretError(String::from(
                 "The config file wasn't a table (shouldn't be thrown)",
             ))),
         }
@@ -101,6 +103,7 @@ impl DerefMut for TestConfig {
     }
 }
 
+/// The trait implemented by all supported configurations.
 pub trait Config {
     /// A name for this set of tests
     fn name(&self) -> &str;
@@ -123,12 +126,13 @@ pub trait Config {
 }
 
 /// The different kinds of tests that can be done.
-///
-/// Currently, it just supports having a directory with inputs and
-/// outputs. I plan to eventually support other options (including
-/// junit).
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TestType<'a> {
+    /// Load in testing data from a directory.
+    ///
+    /// For each test case, there should be a file <test_case_name>.in
+    /// and another file <test_case_name>.out, which contain,
+    /// respectively, the input and output for that test case.
     Directory(&'a str),
 }
 
@@ -137,10 +141,14 @@ pub enum TestType<'a> {
 /// file.
 #[derive(Debug)]
 pub enum Error {
+    /// An error occured while parsing the toml
     TomlError(toml::de::Error),
+    /// An error occured during file i/o
     IoError(io::Error),
+    /// An error occured interpreting file contents as utf8
     FromUtf8Error(std::string::FromUtf8Error),
-    OtherError(String),
+    /// An error interpreting the parsed toml as a test configuration
+    InterpretError(String),
 }
 
 /// Reads from an input stream until the input stream ends, and returns

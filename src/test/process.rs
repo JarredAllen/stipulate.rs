@@ -13,11 +13,20 @@ fn read_from_stream<T: Read>(stream: &mut T) -> Result<String, String> {
     String::from_utf8(data).map_err(|e| format!("{}", e))
 }
 
+/// An enum which contains the possible results of running a Test on a
+/// student's code. Note that this only has options for if the test
+/// completes, a different value is returned if the tester is unable to
+/// evaluate a student's code.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TestAnswer {
+    /// It passed the test
     Success,
+    /// It failed the test, and no additional information is given
     Failure,
+    /// It did not finish running during the allotted time.
     Timeout,
+    /// It failed the test. This contains a `String` with more
+    /// information, which can be given to the student.
     FailWithMessage(String),
 }
 

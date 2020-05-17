@@ -3,12 +3,15 @@ use std::time::Duration;
 /// Default timeout for python programs, in seconds, per test case
 const DEFAULT_TIMEOUT: u64 = 5;
 
+/// The default python interpreter to use, if unspecified
 #[cfg(target_os = "windows")]
 const DEFAULT_PYTHON: &str = "python";
-
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux",target_os = "macos"))]
 const DEFAULT_PYTHON: &str = "python3";
 
+/// This struct represents a configuration for running a python program.
+///
+/// See `PythonConfig::from_toml` for docs on how to create one.
 pub struct PythonConfig {
     name: String,
     test_data_dir: String,
@@ -24,6 +27,22 @@ pub struct PythonConfig {
 }
 
 impl PythonConfig {
+    /// Required fields in the toml:
+    ///  - "name": A name for this test
+    ///  - "tests_dir": The directory to contain input and output data
+    ///  - "file": The file to be run
+    ///
+    /// Optional fields in the toml:
+    ///  - "timeout": Should be the number of seconds to allow before
+    /// timing out, `true` (use default timeout value), or `false`
+    /// (allow tested code to run however long it takes - not
+    /// recommended). Default: 5 seconds
+    ///  - "args": Should be an array of arguments to pass to the python
+    /// program being tested. It will be passed to the sys.argv value
+    /// in the python program. Default: empty array
+    ///  - "version": Enables you to specify a version of python to use.
+    /// Default: OS dependent: "python" for Windows, "python3" for
+    /// Linux/MacOS.
     pub fn from_toml(conf: &toml::Value) -> Result<PythonConfig, &'static str> {
         let name = match conf.get("name") {
             Some(toml::Value::String(s)) => Ok(s.clone()),
