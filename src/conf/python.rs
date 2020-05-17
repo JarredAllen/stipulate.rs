@@ -6,7 +6,7 @@ const DEFAULT_TIMEOUT: u64 = 5;
 /// The default python interpreter to use, if unspecified
 #[cfg(target_os = "windows")]
 const DEFAULT_PYTHON: &str = "python";
-#[cfg(any(target_os = "linux",target_os = "macos"))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 const DEFAULT_PYTHON: &str = "python3";
 
 /// This struct represents a configuration for running a python program.
@@ -76,14 +76,19 @@ impl PythonConfig {
         }?;
         let mut args: Vec<String> = match conf.get("args") {
             None => Ok(Vec::new()),
-            Some(toml::Value::Array(arr)) => arr.iter().map(|v| match v {
-                toml::Value::String(s) => Ok(s.clone()),
-                toml::Value::Array(_) | toml::Value::Table(_) => Err("Args may not contain nested structures"),
-                toml::Value::Integer(i) => Ok(format!("{}", i)),
-                toml::Value::Float(f) => Ok(format!("{}", f)),
-                toml::Value::Boolean(b) => Ok(format!("{}", b)),
-                toml::Value::Datetime(d) => Ok(format!("{}", d)),
-            }).collect(),
+            Some(toml::Value::Array(arr)) => arr
+                .iter()
+                .map(|v| match v {
+                    toml::Value::String(s) => Ok(s.clone()),
+                    toml::Value::Array(_) | toml::Value::Table(_) => {
+                        Err("Args may not contain nested structures")
+                    }
+                    toml::Value::Integer(i) => Ok(format!("{}", i)),
+                    toml::Value::Float(f) => Ok(format!("{}", f)),
+                    toml::Value::Boolean(b) => Ok(format!("{}", b)),
+                    toml::Value::Datetime(d) => Ok(format!("{}", d)),
+                })
+                .collect(),
             _ => Err("\"args\", if specified, must be an array"),
         }?;
         args.insert(0, main_file);

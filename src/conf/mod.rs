@@ -195,7 +195,10 @@ mod tests {
         let python_toml: toml::Value = "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nversion = \"python3\"\nfile = \"source.py\"\n".parse().unwrap();
         let python_config = TestConfig::from_toml_values(python_toml).unwrap();
         assert_eq!("Test A", python_config.name());
-        assert_eq!(TestType::Directory("path/to/test"), python_config.test_type());
+        assert_eq!(
+            TestType::Directory("path/to/test"),
+            python_config.test_type()
+        );
         assert_eq!("python3", python_config.command());
         assert_eq!(&["source.py"], python_config.args());
         assert_eq!(&[""; 0], python_config.setup());
@@ -207,8 +210,9 @@ mod tests {
         let java_config = TestConfig::from_toml_values(
             "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\n"
                 .parse()
-                .unwrap()
-        ).unwrap();
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(&["Main"], java_config.args());
         let java_config = TestConfig::from_toml_values(
             "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\nargs = [\"Hello,\", \"world!\"]\n"
@@ -219,8 +223,9 @@ mod tests {
         let python_config = TestConfig::from_toml_values(
             "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nfile = \"source.py\"\n"
                 .parse()
-                .unwrap()
-        ).unwrap();
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(&["source.py"], python_config.args());
         let python_config = TestConfig::from_toml_values(
             "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nfile = \"source.py\"\nargs = [\"Hello,\", \"world!\"]\n"
