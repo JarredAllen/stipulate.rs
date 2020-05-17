@@ -14,7 +14,7 @@ checksum = "99e7b308464d16b56eba9964e4972a3eee817760ab60d88c3f86e1fecb08204c"
 
 [[package]]
 name = "stipulate"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "toml",
  "wait-timeout",
