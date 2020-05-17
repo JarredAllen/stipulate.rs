@@ -11,3 +11,4 @@ repository = "https://github.com/JarredAllen/stipulate.rs"
 
 [dependencies]
 wait-timeout = "0.2.0"
+toml = "0.5"
