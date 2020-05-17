@@ -201,4 +201,32 @@ mod tests {
         assert_eq!(&[""; 0], python_config.setup());
         assert_eq!(&Some(Duration::new(5, 0)), python_config.case_timeout());
     }
+
+    #[test]
+    fn test_from_toml_with_args() {
+        let java_config = TestConfig::from_toml_values(
+            "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\n"
+                .parse()
+                .unwrap()
+        ).unwrap();
+        assert_eq!(&["Main"], java_config.args());
+        let java_config = TestConfig::from_toml_values(
+            "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\nargs = [\"Hello,\", \"world!\"]\n"
+                .parse()
+                .unwrap()
+        ).unwrap();
+        assert_eq!(&["Main", "Hello,", "world!"], java_config.args());
+        let python_config = TestConfig::from_toml_values(
+            "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nfile = \"source.py\"\n"
+                .parse()
+                .unwrap()
+        ).unwrap();
+        assert_eq!(&["source.py"], python_config.args());
+        let python_config = TestConfig::from_toml_values(
+            "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nfile = \"source.py\"\nargs = [\"Hello,\", \"world!\"]\n"
+                .parse()
+                .unwrap()
+        ).unwrap();
+        assert_eq!(&["source.py", "Hello,", "world!"], python_config.args());
+    }
 }
