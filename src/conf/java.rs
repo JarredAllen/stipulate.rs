@@ -20,6 +20,7 @@ pub struct JavaConfig {
     // Stores a vec of pointers to str objects in args. Unsafe, but
     // needed to be able to produce a &[&str].
     args_refs: Vec<*const str>,
+    target_dir: String,
 }
 
 impl JavaConfig {
@@ -27,6 +28,8 @@ impl JavaConfig {
     ///  - "name": A name for this test
     ///  - "tests_dir": The directory to contain input and output data
     ///  - "main_class": The class containing a public static void
+    ///  - "target_dir": The directory containing all student
+    ///    submissions (each submission as its own directory).
     /// main(String[] args) method to be run.
     ///
     /// Optional fields in the toml:
@@ -61,7 +64,7 @@ impl JavaConfig {
             ))),
             None | Some(toml::Value::Boolean(true)) => Ok(Some(Duration::new(DEFAULT_TIMEOUT, 0))),
             Some(toml::Value::Boolean(false)) => Ok(None),
-            _ => Err("\"timeout\", if specified, should be a number or false"),
+            _ => Err("\"timeout\", if specified, should be a number or boolean"),
         }?;
         let mut args: Vec<String> = match conf.get("args") {
             None => Ok(Vec::new()),
@@ -81,6 +84,11 @@ impl JavaConfig {
             _ => Err("\"args\", if specified, must be an array"),
         }?;
         args.insert(0, main_class);
+        let target_dir = match conf.get("target_dir") {
+            Some(toml::Value::String(s)) => Ok(s.clone()),
+            None => Err("Missing \"target_dir\" field"),
+            _ => Err("\"target_dir\" field must be a string"),
+        }?;
         let args_refs: Vec<*const str> = args.iter().map(|s| s.as_str() as *const str).collect();
         Ok(JavaConfig {
             name,
@@ -88,6 +96,7 @@ impl JavaConfig {
             timeout,
             args,
             args_refs,
+            target_dir,
         })
     }
 }
@@ -117,5 +126,9 @@ impl super::Config for JavaConfig {
 
     fn setup(&self) -> &[&str] {
         &JAVA_SETUP
+    }
+
+    fn target_dir(&self) -> &str {
+        &self.target_dir
     }
 }

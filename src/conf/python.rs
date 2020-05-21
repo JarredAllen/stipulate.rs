@@ -4,9 +4,9 @@ use std::time::Duration;
 const DEFAULT_TIMEOUT: u64 = 5;
 
 /// The default python interpreter to use, if unspecified
-#[cfg(target_os = "windows")]
+#[cfg(target_family = "windows")]
 const DEFAULT_PYTHON: &str = "python";
-#[cfg(any(target_os = "linux", target_os = "macos"))]
+#[cfg(any(target_family = "unix"))]
 const DEFAULT_PYTHON: &str = "python3";
 
 /// This struct represents a configuration for running a python program.
@@ -24,6 +24,7 @@ pub struct PythonConfig {
     // Stores a vec of pointers to str objects in args. Unsafe, but
     // needed to be able to produce a &[&str].
     args_refs: Vec<*const str>,
+    target_dir: String,
 }
 
 impl PythonConfig {
@@ -92,6 +93,11 @@ impl PythonConfig {
             _ => Err("\"args\", if specified, must be an array"),
         }?;
         args.insert(0, main_file);
+        let target_dir = match conf.get("target_dir") {
+            Some(toml::Value::String(s)) => Ok(s.clone()),
+            None => Err("Missing \"target_dir\" field"),
+            _ => Err("\"target_dir\" field must be a string"),
+        }?;
         let args_refs: Vec<*const str> = args.iter().map(|s| s.as_str() as *const str).collect();
         Ok(PythonConfig {
             name,
@@ -100,6 +106,7 @@ impl PythonConfig {
             timeout,
             args,
             args_refs,
+            target_dir,
         })
     }
 }
@@ -130,5 +137,9 @@ impl super::Config for PythonConfig {
     fn setup(&self) -> &[&str] {
         // No need to do any setup
         &[]
+    }
+
+    fn target_dir(&self) -> &str {
+        &self.target_dir
     }
 }

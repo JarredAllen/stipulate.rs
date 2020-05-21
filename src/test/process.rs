@@ -28,6 +28,9 @@ pub enum TestAnswer {
     /// It failed the test. This contains a `String` with more
     /// information, which can be given to the student.
     FailWithMessage(String),
+    /// The setup commands, when run, exitted with nonzero status
+    /// (likely indicating a compile error).
+    CompileError,
 }
 
 /// Runs the given command with the given args, and passes the given
@@ -43,7 +46,7 @@ pub enum TestAnswer {
 ///
 /// For now, it assumes that the child process sends valid UTF-8 out.
 /// If it doesn't, then this function will error.
-pub fn test_output(
+pub fn test_output_against_strings(
     cmd: &str,
     args: &[&str],
     input: &str,
@@ -96,11 +99,11 @@ mod tests {
     #[test]
     fn test_without_timeout() {
         assert_eq!(
-            test_output("echo", &["Hello, world"], "", "Hello, world\n", None),
+            test_output_against_strings("echo", &["Hello, world"], "", "Hello, world\n", None),
             Ok(TestAnswer::Success)
         );
         assert_eq!(
-            test_output("echo", &["Goodbye, world"], "", "Hello, world\n", None),
+            test_output_against_strings("echo", &["Goodbye, world"], "", "Hello, world\n", None),
             Ok(TestAnswer::Failure)
         );
     }
@@ -108,7 +111,7 @@ mod tests {
     #[test]
     fn test_with_timeout() {
         assert_eq!(
-            test_output(
+            test_output_against_strings(
                 "echo",
                 &["Hello, world"],
                 "",
@@ -118,7 +121,7 @@ mod tests {
             Ok(TestAnswer::Success)
         );
         assert_eq!(
-            test_output(
+            test_output_against_strings(
                 "echo",
                 &["Goodbye, world"],
                 "",
@@ -128,7 +131,7 @@ mod tests {
             Ok(TestAnswer::Failure)
         );
         assert_eq!(
-            test_output(
+            test_output_against_strings(
                 "sleep",
                 &["10"],
                 "",

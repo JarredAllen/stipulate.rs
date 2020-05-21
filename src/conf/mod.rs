@@ -123,6 +123,8 @@ pub trait Config {
     /// A list of commands to be run in the student's code directory
     /// before running the code.
     fn setup(&self) -> &[&str];
+
+    fn target_dir(&self) -> &str;
 }
 
 /// The different kinds of tests that can be done.
@@ -166,7 +168,7 @@ mod tests {
     #[test]
     fn test_from_toml() {
         let java_toml: toml::Value =
-            "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\n"
+            "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\ntarget_dir = \"testa/sub\"\n"
                 .parse()
                 .unwrap();
         let java_config = TestConfig::from_toml_values(java_toml).unwrap();
@@ -176,7 +178,8 @@ mod tests {
         assert_eq!(&["Main"], java_config.args());
         assert_eq!(&["javac *.java"], java_config.setup());
         assert_eq!(&Some(Duration::new(5, 0)), java_config.case_timeout());
-        let java_toml: toml::Value = "[java]\nname = \"Test B\"\ntests_dir = \"path/to/test\"\nmain_class = \"MainB\"\ntimeout = 1".parse().unwrap();
+        assert_eq!("testa/sub", java_config.target_dir());
+        let java_toml: toml::Value = "[java]\nname = \"Test B\"\ntests_dir = \"path/to/test\"\nmain_class = \"MainB\"\ntimeout = 1\ntarget_dir = \"testb/sub\"\n".parse().unwrap();
         let java_config = TestConfig::from_toml_values(java_toml).unwrap();
         assert_eq!("Test B", java_config.name());
         assert_eq!(TestType::Directory("path/to/test"), java_config.test_type());
@@ -184,7 +187,8 @@ mod tests {
         assert_eq!(&["MainB"], java_config.args());
         assert_eq!(&["javac *.java"], java_config.setup());
         assert_eq!(&Some(Duration::new(1, 0)), java_config.case_timeout());
-        let java_toml: toml::Value = "[java]\nname = \"Test C\"\ntests_dir = \"path/to/test\"\nmain_class = \"OtherClass\"\ntimeout = false".parse().unwrap();
+        assert_eq!("testb/sub", java_config.target_dir());
+        let java_toml: toml::Value = "[java]\nname = \"Test C\"\ntests_dir = \"path/to/test\"\nmain_class = \"OtherClass\"\ntimeout = false\ntarget_dir = \"testc/sub\"\n".parse().unwrap();
         let java_config = TestConfig::from_toml_values(java_toml).unwrap();
         assert_eq!("Test C", java_config.name());
         assert_eq!(TestType::Directory("path/to/test"), java_config.test_type());
@@ -192,7 +196,8 @@ mod tests {
         assert_eq!(&["OtherClass"], java_config.args());
         assert_eq!(&["javac *.java"], java_config.setup());
         assert_eq!(&None, java_config.case_timeout());
-        let python_toml: toml::Value = "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nversion = \"python3\"\nfile = \"source.py\"\n".parse().unwrap();
+        assert_eq!("testc/sub", java_config.target_dir());
+        let python_toml: toml::Value = "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nversion = \"python3\"\nfile = \"source.py\"\ntarget_dir = \"testa/pysub\"\n".parse().unwrap();
         let python_config = TestConfig::from_toml_values(python_toml).unwrap();
         assert_eq!("Test A", python_config.name());
         assert_eq!(
@@ -203,32 +208,33 @@ mod tests {
         assert_eq!(&["source.py"], python_config.args());
         assert_eq!(&[""; 0], python_config.setup());
         assert_eq!(&Some(Duration::new(5, 0)), python_config.case_timeout());
+        assert_eq!("testa/pysub", python_config.target_dir());
     }
 
     #[test]
     fn test_from_toml_with_args() {
         let java_config = TestConfig::from_toml_values(
-            "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\n"
+            "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\ntarget_dir = \"d\"\n"
                 .parse()
                 .unwrap(),
         )
         .unwrap();
         assert_eq!(&["Main"], java_config.args());
         let java_config = TestConfig::from_toml_values(
-            "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\nargs = [\"Hello,\", \"world!\"]\n"
+            "[java]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nmain_class = \"Main\"\nargs = [\"Hello,\", \"world!\"]\ntarget_dir = \"d\"\n"
                 .parse()
                 .unwrap()
         ).unwrap();
         assert_eq!(&["Main", "Hello,", "world!"], java_config.args());
         let python_config = TestConfig::from_toml_values(
-            "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nfile = \"source.py\"\n"
+            "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nfile = \"source.py\"\ntarget_dir = \"d\"\n"
                 .parse()
                 .unwrap(),
         )
         .unwrap();
         assert_eq!(&["source.py"], python_config.args());
         let python_config = TestConfig::from_toml_values(
-            "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nfile = \"source.py\"\nargs = [\"Hello,\", \"world!\"]\n"
+            "[python]\nname = \"Test A\"\ntests_dir = \"path/to/test\"\nfile = \"source.py\"\nargs = [\"Hello,\", \"world!\"]\ntarget_dir = \"d\"\n"
                 .parse()
                 .unwrap()
         ).unwrap();
