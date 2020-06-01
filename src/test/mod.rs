@@ -3,6 +3,7 @@
 mod process;
 
 use std::collections::HashMap;
+use std::error::Error;
 use std::fs::{self, File};
 use std::io::Read;
 use std::time::Duration;
@@ -27,7 +28,7 @@ fn test_student_against_strings(
     args: &[&str],
     cases: &[(&str, &str)],
     timeout: Option<Duration>,
-) -> Vec<Result<TestAnswer, String>> {
+) -> Vec<Result<TestAnswer, Box<dyn Error + 'static>>> {
     // TODO move to student_dir and do the setup commands
     if true {
         cases
@@ -35,9 +36,10 @@ fn test_student_against_strings(
             .map(|(input, output)| test_output_against_strings(cmd, args, input, output, timeout))
             .collect()
     } else {
-        let mut errors = Vec::new();
-        errors.resize(cases.len(), Ok(TestAnswer::CompileError));
-        errors
+        vec![TestAnswer::CompileError; cases.len()]
+            .into_iter()
+            .map(|c| Ok(c))
+            .collect()
     }
 }
 
@@ -50,14 +52,16 @@ fn test_student_against_strings(
 /// that student's results on that test
 pub fn test_from_configuration(
     config: &TestConfig,
-) -> Result<HashMap<String, HashMap<String, Result<TestAnswer, String>>>, String> {
+) -> Result<
+    HashMap<String, HashMap<String, Result<TestAnswer, Box<dyn Error + 'static>>>>,
+    Box<dyn Error + 'static>,
+> {
     lazy_static! {
         static ref FILENAME_EXT_REMOVER: Regex = Regex::new(r"(.*)[.][^.]+").unwrap();
     }
     match config.test_type() {
         TestType::Directory(dir) => {
-            let cases: Vec<String> = fs::read_dir(dir)
-                .map_err(|e| format!("{}", e))?
+            let cases: Vec<String> = fs::read_dir(dir)?
                 .map(|file| {
                     file.map(|f| {
                         String::from(
@@ -67,8 +71,7 @@ pub fn test_from_configuration(
                         )
                     })
                 })
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| format!("{:?}", e))?
+                .collect::<Result<Vec<String>, _>>()?
                 .iter()
                 .filter_map(|fname| {
                     FILENAME_EXT_REMOVER
@@ -128,8 +131,9 @@ pub fn test_from_configuration(
                     Ok((
                         student_name,
                         cases
-                            .iter().cloned()
-                            .zip(test_results.iter().cloned())
+                            .iter()
+                            .cloned()
+                            .zip(test_results.into_iter())
                             .collect(),
                     ))
                 })

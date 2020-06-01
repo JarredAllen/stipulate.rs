@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -5,12 +6,10 @@ use wait_timeout::ChildExt;
 
 /// Reads from an input stream until the input stream ends, and returns
 /// the results in a `String`.
-fn read_from_stream<T: Read>(stream: &mut T) -> Result<String, String> {
+fn read_from_stream<T: Read>(stream: &mut T) -> Result<String, Box<dyn Error + 'static>> {
     let mut data = Vec::new();
-    stream
-        .read_to_end(&mut data)
-        .map_err(|e| format!("{}", e))?;
-    String::from_utf8(data).map_err(|e| format!("{}", e))
+    stream.read_to_end(&mut data)?;
+    Ok(String::from_utf8(data)?)
 }
 
 /// An enum which contains the possible results of running a Test on a
@@ -52,19 +51,17 @@ pub fn test_output_against_strings(
     input: &str,
     expected_output: &str,
     timeout: Option<Duration>,
-) -> Result<TestAnswer, String> {
+) -> Result<TestAnswer, Box<dyn Error + 'static>> {
     let mut child = Command::new(cmd)
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Error spawning child to test: {}", e))?;
+        .spawn()?;
     child
         .stdin
         .as_mut()
         .ok_or_else(|| String::from("Error grabbing child stdin"))?
-        .write_all(input.as_bytes())
-        .map_err(|e| format!("Error writing to child stdin: {}", e))?;
+        .write_all(input.as_bytes())?;
     match timeout {
         Some(delay) => match child.wait_timeout(delay) {
             Ok(Some(code)) => Ok(code),
@@ -78,8 +75,7 @@ pub fn test_output_against_strings(
             Err(e) => Err(e),
         },
         None => child.wait(),
-    }
-    .map_err(|e| format!("Error waiting on child process: {}", e))?;
+    }?;
     let child_output = read_from_stream(
         child
             .stdout
@@ -99,12 +95,14 @@ mod tests {
     #[test]
     fn test_without_timeout() {
         assert_eq!(
-            test_output_against_strings("echo", &["Hello, world"], "", "Hello, world\n", None),
-            Ok(TestAnswer::Success)
+            test_output_against_strings("echo", &["Hello, world"], "", "Hello, world\n", None)
+                .unwrap(),
+            TestAnswer::Success
         );
         assert_eq!(
-            test_output_against_strings("echo", &["Goodbye, world"], "", "Hello, world\n", None),
-            Ok(TestAnswer::Failure)
+            test_output_against_strings("echo", &["Goodbye, world"], "", "Hello, world\n", None)
+                .unwrap(),
+            TestAnswer::Failure
         );
     }
 
@@ -117,8 +115,9 @@ mod tests {
                 "",
                 "Hello, world\n",
                 Some(Duration::new(1, 0))
-            ),
-            Ok(TestAnswer::Success)
+            )
+            .unwrap(),
+            TestAnswer::Success
         );
         assert_eq!(
             test_output_against_strings(
@@ -127,8 +126,9 @@ mod tests {
                 "",
                 "Hello, world\n",
                 Some(Duration::new(1, 0))
-            ),
-            Ok(TestAnswer::Failure)
+            )
+            .unwrap(),
+            TestAnswer::Failure
         );
         assert_eq!(
             test_output_against_strings(
@@ -137,8 +137,9 @@ mod tests {
                 "",
                 "Hello, world\n",
                 Some(Duration::new(0, 100))
-            ),
-            Ok(TestAnswer::Timeout)
+            )
+            .unwrap(),
+            TestAnswer::Timeout
         );
     }
 }

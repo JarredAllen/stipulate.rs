@@ -3,8 +3,9 @@
 mod java;
 mod python;
 
+use std::error::Error;
 use std::fs::File;
-use std::io::{self, Read};
+use std::io::Read;
 use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 
@@ -33,11 +34,9 @@ impl TestConfig {
     ///
     /// See `TestConfig::from_toml_values` for information about what it
     /// can do.
-    pub fn from_file(filename: &str) -> Result<TestConfig, Error> {
-        let mut file = File::open(filename).map_err(Error::IoError)?;
-        let file_contents: toml::Value = read_from_stream(&mut file)?
-            .parse()
-            .map_err(Error::TomlError)?;
+    pub fn from_file(filename: &str) -> Result<TestConfig, Box<dyn Error + 'static>> {
+        let mut file = File::open(filename)?;
+        let file_contents: toml::Value = read_from_stream(&mut file)?.parse()?;
         Self::from_toml_values(file_contents)
     }
 
@@ -53,7 +52,7 @@ impl TestConfig {
     /// Configuration options for java are at `JavaConfig::from_toml`.
     ///
     /// Configuration options for python are at `PythonConfig::from_toml`.
-    pub fn from_toml_values(values: toml::Value) -> Result<TestConfig, Error> {
+    pub fn from_toml_values(values: toml::Value) -> Result<TestConfig, Box<dyn Error + 'static>> {
         match values {
             toml::Value::Table(table) => {
                 if table.len() == 1 {
@@ -61,31 +60,23 @@ impl TestConfig {
                     let value = table.get(key).unwrap();
                     Ok(TestConfig {
                         config: match key.as_str() {
-                            "java" => Box::new(
-                                java::JavaConfig::from_toml(value)
-                                    .map_err(|e| Error::InterpretError(e.to_string()))?,
-                            ),
-                            "python" => Box::new(
-                                python::PythonConfig::from_toml(value)
-                                    .map_err(|e| Error::InterpretError(e.to_string()))?,
-                            ),
-                            key => {
-                                return Err(Error::InterpretError(format!(
-                                    "Unrecognized config type: {}",
-                                    key
-                                )))
-                            }
+                            "java" => Box::new(java::JavaConfig::from_toml(value)?),
+                            "python" => Box::new(python::PythonConfig::from_toml(value)?),
+                            key => Err(Box::new(InterpretConfigError::new(format!(
+                                "Unrecognized config type: {}",
+                                key
+                            ))))?,
                         },
                     })
                 } else {
-                    Err(Error::InterpretError(String::from(
+                    Err(Box::new(InterpretConfigError::new(String::from(
                         "The config file should have exactly one section",
-                    )))
+                    ))))
                 }
             }
-            _ => Err(Error::InterpretError(String::from(
+            _ => Err(Box::new(InterpretConfigError::new(String::from(
                 "The config file wasn't a table (shouldn't be thrown)",
-            ))),
+            )))),
         }
     }
 }
@@ -127,6 +118,22 @@ pub trait Config {
     fn target_dir(&self) -> &str;
 }
 
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub struct InterpretConfigError {
+    message: String,
+}
+impl InterpretConfigError {
+    pub fn new(message: String) -> InterpretConfigError {
+        InterpretConfigError { message }
+    }
+}
+impl std::fmt::Display for InterpretConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+impl Error for InterpretConfigError {}
+
 /// The different kinds of tests that can be done.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TestType<'a> {
@@ -138,27 +145,12 @@ pub enum TestType<'a> {
     Directory(&'a str),
 }
 
-/// An enum representing the kinds of errors that can be encountered
-/// when trying to read a `Config` object from a file or write it to a
-/// file.
-#[derive(Debug)]
-pub enum Error {
-    /// An error occured while parsing the toml
-    TomlError(toml::de::Error),
-    /// An error occured during file i/o
-    IoError(io::Error),
-    /// An error occured interpreting file contents as utf8
-    FromUtf8Error(std::string::FromUtf8Error),
-    /// An error interpreting the parsed toml as a test configuration
-    InterpretError(String),
-}
-
 /// Reads from an input stream until the input stream ends, and returns
 /// the results in a `String`, decoded as UTF8.
-fn read_from_stream<T: Read>(stream: &mut T) -> Result<String, Error> {
+fn read_from_stream<T: Read>(stream: &mut T) -> Result<String, Box<dyn Error + 'static>> {
     let mut data = Vec::new();
-    stream.read_to_end(&mut data).map_err(Error::IoError)?;
-    String::from_utf8(data).map_err(Error::FromUtf8Error)
+    stream.read_to_end(&mut data)?;
+    Ok(String::from_utf8(data)?)
 }
 
 #[cfg(test)]
