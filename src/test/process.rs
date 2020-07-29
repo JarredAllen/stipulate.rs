@@ -1,7 +1,11 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::time::Duration;
+
+use errormake::errormake;
+
 use wait_timeout::ChildExt;
 
 /// Reads from an input stream until the input stream ends, and returns
@@ -47,7 +51,8 @@ pub enum TestAnswer {
 /// If it doesn't, then this function will error.
 pub fn test_output_against_strings(
     cmd: &str,
-    args: &[&str],
+    args: &[String],
+    env_vars: &HashMap<String, String>,
     input: &str,
     expected_output: &str,
     timeout: Option<Duration>,
@@ -56,11 +61,14 @@ pub fn test_output_against_strings(
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
+        .envs(env_vars)
         .spawn()?;
     child
         .stdin
         .as_mut()
-        .ok_or_else(|| String::from("Error grabbing child stdin"))?
+        .ok_or_else(|| {
+            ChildProcessIOError::with_description(String::from("Error grabbing child stdin"))
+        })?
         .write_all(input.as_bytes())?;
     match timeout {
         Some(delay) => match child.wait_timeout(delay) {
@@ -76,17 +84,16 @@ pub fn test_output_against_strings(
         },
         None => child.wait(),
     }?;
-    let child_output = read_from_stream(
-        child
-            .stdout
-            .as_mut()
-            .ok_or_else(|| String::from("Error grabbing child stdout"))?,
-    )?;
+    let child_output = read_from_stream(child.stdout.as_mut().ok_or_else(|| {
+        ChildProcessIOError::with_description(String::from("Error grabbing child stdout"))
+    })?)?;
     Ok(match child_output == expected_output {
         true => TestAnswer::Success,
         false => TestAnswer::Failure,
     })
 }
+
+errormake!(#[doc="An error occured in child process I/O"] pub ChildProcessIOError);
 
 #[cfg(test)]
 mod tests {
@@ -95,13 +102,27 @@ mod tests {
     #[test]
     fn test_without_timeout() {
         assert_eq!(
-            test_output_against_strings("echo", &["Hello, world"], "", "Hello, world\n", None)
-                .unwrap(),
+            test_output_against_strings(
+                "echo",
+                &vec!["Hello, world".to_string()],
+                &HashMap::new(),
+                "",
+                "Hello, world\n",
+                None
+            )
+            .unwrap(),
             TestAnswer::Success
         );
         assert_eq!(
-            test_output_against_strings("echo", &["Goodbye, world"], "", "Hello, world\n", None)
-                .unwrap(),
+            test_output_against_strings(
+                "echo",
+                &vec!["Goodbye, world".to_string()],
+                &HashMap::new(),
+                "",
+                "Hello, world\n",
+                None
+            )
+            .unwrap(),
             TestAnswer::Failure
         );
     }
@@ -111,7 +132,8 @@ mod tests {
         assert_eq!(
             test_output_against_strings(
                 "echo",
-                &["Hello, world"],
+                &vec!["Hello, world".to_string()],
+                &HashMap::new(),
                 "",
                 "Hello, world\n",
                 Some(Duration::new(1, 0))
@@ -122,7 +144,8 @@ mod tests {
         assert_eq!(
             test_output_against_strings(
                 "echo",
-                &["Goodbye, world"],
+                &vec!["Goodbye, world".to_string()],
+                &HashMap::new(),
                 "",
                 "Hello, world\n",
                 Some(Duration::new(1, 0))
@@ -133,7 +156,8 @@ mod tests {
         assert_eq!(
             test_output_against_strings(
                 "sleep",
-                &["10"],
+                &vec!["10".to_string()],
+                &HashMap::new(),
                 "",
                 "Hello, world\n",
                 Some(Duration::new(0, 100))

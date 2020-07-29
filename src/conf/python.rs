@@ -1,4 +1,7 @@
+use std::collections::HashMap;
 use std::time::Duration;
+
+use errormake::errormake;
 
 /// Default timeout for python programs, in seconds, per test case
 const DEFAULT_TIMEOUT: u64 = 5;
@@ -17,13 +20,8 @@ pub struct PythonConfig {
     test_data_dir: String,
     python_version: String,
     timeout: Option<Duration>,
-    // Stores the arguments. We never touch it directly, but args_refs
-    // points within here, so we have to keep ownership
-    #[allow(dead_code)]
+    filename: String,
     args: Vec<String>,
-    // Stores a vec of pointers to str objects in args. Unsafe, but
-    // needed to be able to produce a &[&str].
-    args_refs: Vec<*const str>,
     target_dir: String,
 }
 
@@ -44,21 +42,33 @@ impl PythonConfig {
     ///  - "version": Enables you to specify a version of python to use.
     /// Default: OS dependent: "python" for Windows, "python3" for
     /// Linux/MacOS.
-    pub fn from_toml(conf: &toml::Value) -> Result<PythonConfig, &'static str> {
+    pub fn from_toml(
+        conf: &toml::Value,
+    ) -> Result<PythonConfig, PythonConfigError<std::convert::Infallible>> {
         let name = match conf.get("name") {
             Some(toml::Value::String(s)) => Ok(s.clone()),
-            None => Err("Missing \"name\" field"),
-            _ => Err("\"name\" field should be a string"),
+            None => Err(PythonConfigError::with_description(
+                "Missing \"name\" field".to_string(),
+            )),
+            _ => Err(PythonConfigError::with_description(
+                "\"name\" field should be a string".to_string(),
+            )),
         }?;
         let test_data_dir = match conf.get("tests_dir") {
             Some(toml::Value::String(s)) => Ok(s.clone()),
-            None => Err("Missing \"tests_dir\" field"),
-            _ => Err("\"tests_dir\" field should be a string"),
+            None => Err(PythonConfigError::with_description(
+                "Missing \"tests_dir\" field".to_string(),
+            )),
+            _ => Err(PythonConfigError::with_description(
+                "\"tests_dir\" field should be a string".to_string(),
+            )),
         }?;
         let python_version = match conf.get("version") {
             Some(toml::Value::String(s)) => Ok(s.clone()),
             None => Ok(String::from(DEFAULT_PYTHON)),
-            _ => Err("\"version\", if specified, must be a string"),
+            _ => Err(PythonConfigError::with_description(
+                "\"version\", if specified, must be a string".to_string(),
+            )),
         }?;
         let timeout = match conf.get("timeout") {
             Some(toml::Value::Integer(seconds)) => Ok(Some(Duration::new(*seconds as u64, 0))),
@@ -68,21 +78,29 @@ impl PythonConfig {
             ))),
             None | Some(toml::Value::Boolean(true)) => Ok(Some(Duration::new(DEFAULT_TIMEOUT, 0))),
             Some(toml::Value::Boolean(false)) => Ok(None),
-            _ => Err("\"timeout\", if specified, should be a number or false"),
+            _ => Err(PythonConfigError::with_description(
+                "\"timeout\", if specified, should be a number or false".to_string(),
+            )),
         }?;
-        let main_file = match conf.get("file") {
+        let filename = match conf.get("file") {
             Some(toml::Value::String(s)) => Ok(s.clone()),
-            None => Err("Missing \"file\" field"),
-            _ => Err("\"file\" field should be a string"),
+            None => Err(PythonConfigError::with_description(
+                "Missing \"file\" field".to_string(),
+            )),
+            _ => Err(PythonConfigError::with_description(
+                "\"file\" field should be a string".to_string(),
+            )),
         }?;
-        let mut args: Vec<String> = match conf.get("args") {
+        let args: Vec<String> = match conf.get("args") {
             None => Ok(Vec::new()),
             Some(toml::Value::Array(arr)) => arr
                 .iter()
                 .map(|v| match v {
                     toml::Value::String(s) => Ok(s.clone()),
                     toml::Value::Array(_) | toml::Value::Table(_) => {
-                        Err("Args may not contain nested structures")
+                        Err(PythonConfigError::with_description(
+                            "Args may not contain nested structures".to_string(),
+                        ))
                     }
                     toml::Value::Integer(i) => Ok(format!("{}", i)),
                     toml::Value::Float(f) => Ok(format!("{}", f)),
@@ -90,22 +108,26 @@ impl PythonConfig {
                     toml::Value::Datetime(d) => Ok(format!("{}", d)),
                 })
                 .collect(),
-            _ => Err("\"args\", if specified, must be an array"),
+            _ => Err(PythonConfigError::with_description(
+                "\"args\", if specified, must be an array".to_string(),
+            )),
         }?;
-        args.insert(0, main_file);
         let target_dir = match conf.get("target_dir") {
             Some(toml::Value::String(s)) => Ok(s.clone()),
-            None => Err("Missing \"target_dir\" field"),
-            _ => Err("\"target_dir\" field must be a string"),
+            None => Err(PythonConfigError::with_description(
+                "Missing \"target_dir\" field".to_string(),
+            )),
+            _ => Err(PythonConfigError::with_description(
+                "\"target_dir\" field must be a string".to_string(),
+            )),
         }?;
-        let args_refs: Vec<*const str> = args.iter().map(|s| s.as_str() as *const str).collect();
         Ok(PythonConfig {
             name,
             test_data_dir,
             python_version,
             timeout,
+            filename,
             args,
-            args_refs,
             target_dir,
         })
     }
@@ -124,22 +146,31 @@ impl super::Config for PythonConfig {
         &self.timeout
     }
 
-    fn command(&self) -> &str {
-        &self.python_version
+    fn command(&self, _student_dir: &str) -> String {
+        String::from(&self.python_version)
     }
 
-    fn args(&self) -> &[&str] {
+    fn args(&self, student_dir: &str) -> Vec<String> {
         // In this block, we pretend that args_refs was actually just
         // the Vec<&str> that the borrow checker doesn't let it be.
-        unsafe { &*(self.args_refs.as_slice() as *const [*const str] as *const [&str]) }
+        let mut args = vec![format!("{}/{}", student_dir, self.filename)];
+        args.extend(self.args.iter().cloned());
+        args
     }
 
-    fn setup(&self) -> &[&str] {
-        // No need to do any setup
-        &[]
+    fn do_setup(&self, _student_dir: &str) -> bool {
+        // No setup needs to be done
+        true
     }
 
     fn target_dir(&self) -> &str {
         &self.target_dir
     }
+
+    fn env_vars(&self, _student_dir: &str) -> HashMap<String, String> {
+        // No work needs to be done
+        HashMap::new()
+    }
 }
+
+errormake!(#[doc="An error while interpreting Python configuration"] pub PythonConfigError);
