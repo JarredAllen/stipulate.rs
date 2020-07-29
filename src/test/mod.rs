@@ -131,6 +131,7 @@ pub fn test_from_configuration(
                         .map(|(input, output)| TestCase { input, output }),
                 )
                 .collect();
+            // Get the students and test against the cases
             fs::read_dir(config.target_dir())?
                 .filter_map(|entry| {
                     // Remove directories and file i/o errors

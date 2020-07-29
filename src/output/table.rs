@@ -1,25 +1,25 @@
 use itertools::Itertools;
-use prettytable::{Cell, Row, Table};
+use prettytable::{Cell, Row};
 
 use super::super::{ClassResults, TestAnswer};
 use super::OutputMode;
-/// While there aren't any fields, don't rely on initializing it.
-/// There may be fields added at any time
-pub struct Print<T> {
+/// An OutputMode which prints a table to some output stream
+pub struct Table<T> {
     writer: T,
 }
 
-impl<T> Print<T> {
-    pub fn with_stdout() -> Print<std::io::Stdout> {
-        Print::with_output(std::io::stdout())
+impl<T> Table<T> {
+    pub fn with_output(writer: T) -> Self {
+        Table { writer }
     }
-
-    fn with_output(writer: T) -> Print<T> {
-        Print { writer }
+}
+impl Table<std::io::Stdout> {
+    pub fn with_stdout() -> Self {
+        Table::with_output(std::io::stdout())
     }
 }
 
-impl<T: std::io::Write> OutputMode for Print<T> {
+impl<T: std::io::Write> OutputMode for Table<T> {
     fn output_class_results(
         &mut self,
         results: &ClassResults,
@@ -27,14 +27,16 @@ impl<T: std::io::Write> OutputMode for Print<T> {
         let case_names: Vec<&String> = results
             .iter()
             .next()
-            .expect("Displaying an empty run")
+            .expect("There weren't any test cases")
             .1
             .keys()
             .sorted()
             .collect();
-        let mut table = Table::new();
+        let mut table = prettytable::Table::new();
         let mut case_row = Row::empty();
         case_row.add_cell(Cell::new(""));
+        case_row.add_cell(Cell::new("Passed"));
+        case_row.add_cell(Cell::new("Total"));
         for case in case_names.iter() {
             case_row.add_cell(Cell::new(case));
         }
@@ -61,6 +63,8 @@ impl<T: std::io::Write> OutputMode for Print<T> {
                     .collect(),
             );
             row.insert_cell(0, Cell::new(student_name));
+            row.insert_cell(1, Cell::new(format!("{}", student_result.values().filter(|a| if let Ok(TestAnswer::Success) = a { true } else { false }).count()).as_str()));
+            row.insert_cell(2, Cell::new(format!("{}", case_names.len()).as_str()));
             table.add_row(row);
         }
         table.print(&mut self.writer)?;
@@ -97,9 +101,9 @@ mod tests {
     #[test]
     fn test_print_output() {
         let data = make_testing_data();
-        let mut writer = Print::with_output(Vec::<u8>::new());
+        let mut writer = Table::with_output(Vec::<u8>::new());
         writer.output_class_results(&data).unwrap();
         let output = std::str::from_utf8(&writer.writer).unwrap();
-        assert_eq!(output, "+-----------+--------+--------+--------+\n|           | Case 1 | Case 2 | Case 3 |\n+-----------+--------+--------+--------+\n| Student A |        |        |        |\n+-----------+--------+--------+--------+\n| Student B |        | F      | T      |\n+-----------+--------+--------+--------+\n| Student C | C      | C      | C      |\n+-----------+--------+--------+--------+\n");
+        assert_eq!(output, "+-----------+--------+-------+--------+--------+--------+\n|           | Passed | Total | Case 1 | Case 2 | Case 3 |\n+-----------+--------+-------+--------+--------+--------+\n| Student A | 3      | 3     |        |        |        |\n+-----------+--------+-------+--------+--------+--------+\n| Student B | 1      | 3     |        | F      | T      |\n+-----------+--------+-------+--------+--------+--------+\n| Student C | 0      | 3     | C      | C      | C      |\n+-----------+--------+-------+--------+--------+--------+\n");
     }
 }

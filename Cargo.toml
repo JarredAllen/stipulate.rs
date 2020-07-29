@@ -23,8 +23,8 @@ wait-timeout = "0.2.0"
 prettytable-rs = { version = "0.8.0", optional = true }
 
 [features]
-default = ["print-output"]
-print-output = ["prettytable-rs"]
+default = ["table-output"]
+table-output = ["prettytable-rs"]
 
 [profile.dev.package."*"]
 opt-level = 2

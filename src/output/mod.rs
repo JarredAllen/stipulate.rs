@@ -1,5 +1,8 @@
-#[cfg(feature = "print-output")]
-mod cli;
+#[cfg(feature = "table-output")]
+mod table;
+mod csv;
+
+use std::fs::File;
 
 // type ClassResults = HashMap<String, StudentResults>;
 // type StudentResults = HashMap<String, Result<TestAnswer, Box<dyn Error + 'static>>>;
@@ -14,8 +17,19 @@ pub trait OutputMode {
 
 pub fn get_output_mode(name: &str) -> Option<Box<dyn OutputMode + 'static>> {
     match name {
-        #[cfg(feature = "print-output")]
-        "print" => Some(Box::new(cli::Print::<std::io::Stdout>::with_stdout())),
+        #[cfg(feature = "table-output")]
+        "print" => Some(Box::new(table::Table::with_stdout())),
+        "csv" => Some(Box::new(csv::CsvOutput::with_stdout())),
+        _ => None,
+    }
+}
+
+pub fn get_output_mode_for_file(name: &str, filename: &str) -> Option<Box<dyn OutputMode + 'static>> {
+    let file = File::create(filename).ok()?;
+    match name {
+        #[cfg(feature = "table-output")]
+        "print" => Some(Box::new(table::Table::with_output(file))),
+        "csv" => Some(Box::new(csv::CsvOutput::with_output(file))),
         _ => None,
     }
 }

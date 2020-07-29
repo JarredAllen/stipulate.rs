@@ -3,3 +3,4 @@ name = "java-test-1"
 tests_dir = "test-data/java-test-1/tests"
 main_class = "Main"
 target_dir = "test-data/java-test-1/students"
+timeout = 1
