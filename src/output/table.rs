@@ -63,7 +63,23 @@ impl<T: std::io::Write> OutputMode for Table<T> {
                     .collect(),
             );
             row.insert_cell(0, Cell::new(student_name));
-            row.insert_cell(1, Cell::new(format!("{}", student_result.values().filter(|a| if let Ok(TestAnswer::Success) = a { true } else { false }).count()).as_str()));
+            row.insert_cell(
+                1,
+                Cell::new(
+                    format!(
+                        "{}",
+                        student_result
+                            .values()
+                            .filter(|a| if let Ok(TestAnswer::Success) = a {
+                                true
+                            } else {
+                                false
+                            })
+                            .count()
+                    )
+                    .as_str(),
+                ),
+            );
             row.insert_cell(2, Cell::new(format!("{}", case_names.len()).as_str()));
             table.add_row(row);
         }

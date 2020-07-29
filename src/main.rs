@@ -23,7 +23,7 @@ fn main() {
                 .help("The file to write output to (defaults to standard output")
                 .short("o")
                 .long("output-file")
-                .takes_value(true)
+                .takes_value(true),
         )
         .get_matches();
     let config_file = args.value_of("config_file").unwrap();

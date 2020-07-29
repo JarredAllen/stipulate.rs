@@ -1,6 +1,6 @@
+mod csv;
 #[cfg(feature = "table-output")]
 mod table;
-mod csv;
 
 use std::fs::File;
 
@@ -24,7 +24,10 @@ pub fn get_output_mode(name: &str) -> Option<Box<dyn OutputMode + 'static>> {
     }
 }
 
-pub fn get_output_mode_for_file(name: &str, filename: &str) -> Option<Box<dyn OutputMode + 'static>> {
+pub fn get_output_mode_for_file(
+    name: &str,
+    filename: &str,
+) -> Option<Box<dyn OutputMode + 'static>> {
     let file = File::create(filename).ok()?;
     match name {
         #[cfg(feature = "table-output")]

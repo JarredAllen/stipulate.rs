@@ -21,12 +21,12 @@ impl<T> CsvOutput<T> {
 
 impl<T> OutputMode for CsvOutput<T>
 where
-    T: Write
+    T: Write,
 {
     fn output_class_results(
-            &mut self,
-            results: &ClassResults,
-        ) -> Result<(), Box<dyn std::error::Error + 'static>> {
+        &mut self,
+        results: &ClassResults,
+    ) -> Result<(), Box<dyn std::error::Error + 'static>> {
         let case_names: Vec<String> = results
             .iter()
             .next()
@@ -38,18 +38,38 @@ where
             .collect();
         write!(self.writer, "Name,Passed,Total,")?;
         writeln!(self.writer, "{}", case_names.join(","))?;
-        for (student_name, student_result) in  results.iter().sorted_by_key(|a| a.0) {
-            write!(self.writer, "{},{},{},", student_name, student_result.values().filter(|a| if let Ok(TestAnswer::Success) = a { true } else { false }).count(), case_names.len())?;
-            let cases: Vec<_> = case_names.iter().map(|case| {
-                match student_result.get(case).expect("Student missing test case in result") {
-                    Ok(TestAnswer::Success) => " ",
-                    Ok(TestAnswer::Failure) => "F",
-                    Ok(TestAnswer::FailWithMessage(_)) => "F",
-                    Ok(TestAnswer::CompileError) => "C",
-                    Ok(TestAnswer::Timeout) => "T",
-                    Err(_) => "!",
-                }.to_string()
-            }).collect();
+        for (student_name, student_result) in results.iter().sorted_by_key(|a| a.0) {
+            write!(
+                self.writer,
+                "{},{},{},",
+                student_name,
+                student_result
+                    .values()
+                    .filter(|a| if let Ok(TestAnswer::Success) = a {
+                        true
+                    } else {
+                        false
+                    })
+                    .count(),
+                case_names.len()
+            )?;
+            let cases: Vec<_> = case_names
+                .iter()
+                .map(|case| {
+                    match student_result
+                        .get(case)
+                        .expect("Student missing test case in result")
+                    {
+                        Ok(TestAnswer::Success) => " ",
+                        Ok(TestAnswer::Failure) => "F",
+                        Ok(TestAnswer::FailWithMessage(_)) => "F",
+                        Ok(TestAnswer::CompileError) => "C",
+                        Ok(TestAnswer::Timeout) => "T",
+                        Err(_) => "!",
+                    }
+                    .to_string()
+                })
+                .collect();
             writeln!(self.writer, "{}", cases.join(","))?;
         }
         Ok(())
